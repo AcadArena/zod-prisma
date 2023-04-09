@@ -170,16 +170,18 @@ export const generateRelatedSchemaForModel = (
 
 	const relationFields = model.fields.filter((f) => f.kind === 'object')
 
-	sourceFile.addInterface({
-		name: `Complete${model.name}`,
-		isExported: true,
-		extends: [`z.infer<typeof ${modelName(model.name)}>`],
-		properties: relationFields.map((f) => ({
-			hasQuestionToken: !f.isRequired,
-			name: f.name,
-			type: `Complete${f.type}${f.isList ? '[]' : ''}${!f.isRequired ? ' | null' : ''}`,
-		})),
-	})
+	if (!config.disableTypeExport) {
+		sourceFile.addInterface({
+			name: `Complete${model.name}`,
+			isExported: true,
+			extends: [`z.infer<typeof ${modelName(model.name)}>`],
+			properties: relationFields.map((f) => ({
+				hasQuestionToken: !f.isRequired,
+				name: f.name,
+				type: `Complete${f.type}${f.isList ? '[]' : ''}${!f.isRequired ? ' | null' : ''}`,
+			})),
+		})
+	}
 
 	sourceFile.addStatements((writer) => {
 		const comments = [
@@ -197,36 +199,38 @@ export const generateRelatedSchemaForModel = (
 		return writeArray(writer, comments)
 	})
 
-	sourceFile.addVariableStatement({
-		declarationKind: VariableDeclarationKind.Const,
-		isExported: true,
-		declarations: [
-			{
-				name: relatedModelName(model.name),
-				type: `z.ZodSchema<Complete${model.name}>`,
-				initializer(writer) {
-					writer
-						.write(`z.lazy(() => ${modelName(model.name)}.extend(`)
-						.inlineBlock(() => {
-							relationFields.forEach((field) => {
-								writeArray(writer, getJSDocs(field.documentation))
+	if (!config.dieableRelations && !config.disableTypeExport) {
+		sourceFile.addVariableStatement({
+			declarationKind: VariableDeclarationKind.Const,
+			isExported: true,
+			declarations: [
+				{
+					name: relatedModelName(model.name),
+					type: `z.ZodSchema<Complete${model.name}>`,
+					initializer(writer) {
+						writer
+							.write(`z.lazy(() => ${modelName(model.name)}.extend(`)
+							.inlineBlock(() => {
+								relationFields.forEach((field) => {
+									writeArray(writer, getJSDocs(field.documentation))
 
-								writer
-									.write(
-										`${field.name}: ${getZodConstructor(
-											field,
-											relatedModelName
-										)}`
-									)
-									.write(',')
-									.newLine()
+									writer
+										.write(
+											`${field.name}: ${getZodConstructor(
+												field,
+												relatedModelName
+											)}`
+										)
+										.write(',')
+										.newLine()
+								})
 							})
-						})
-						.write('))')
+							.write('))')
+					},
 				},
-			},
-		],
-	})
+			],
+		})
+	}
 }
 
 export const populateEnumFile = (enums: DMMF.DatamodelEnum[], sourceFile: SourceFile) => {

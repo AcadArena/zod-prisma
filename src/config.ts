@@ -18,6 +18,8 @@ export const configSchema = z.object({
 	semicolon: z.nativeEnum(SemicolonPreference).default(SemicolonPreference.Remove),
 	trailingCommas: configBoolean.default('true'),
 	ignoreRelationTypes: configBoolean.default('false').optional(),
+	disableTypeExport: configBoolean.default('false').optional(),
+	dieableRelations: configBoolean.default('false').optional(),
 })
 
 export type Config = z.infer<typeof configSchema>
